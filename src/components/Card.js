@@ -10,10 +10,10 @@ export class Card extends Phaser.GameObjects.Container {
     this.scene = scene;
     this.soundManager = soundManager;
 
-    // Base Kartu (Hitam, sebagai fallback kalau gambar belum load)
+    // Base Kartu
     this.bg = scene.add.rectangle(0, 0, 160, 230, 0x1a1a2e);
     
-    // Garis tepi (Border)
+    // Garis tepi
     this.border = scene.add.rectangle(0, 0, 160, 230).setStrokeStyle(4, 0xf0c040);
     
     this.add([this.bg, this.border]);
@@ -27,7 +27,7 @@ export class Card extends Phaser.GameObjects.Container {
 
     scene.add.existing(this);
 
-    // Interaksi
+    // Interaksi (Hover)
     this.bg.setInteractive({ useHandCursor: true });
     
     this.bg.on('pointerover', () => {
@@ -41,6 +41,7 @@ export class Card extends Phaser.GameObjects.Container {
       scene.tweens.add({ targets: this, y: y, scale: 1, duration: 150 });
     });
 
+    // Klik interaksi (Cuma buat kartu tertutup di fase draft)
     if (this.isHidden) {
       this.bg.on('pointerdown', () => {
         this.bg.disableInteractive();
@@ -54,43 +55,45 @@ export class Card extends Phaser.GameObjects.Container {
     const warnaStroke = data.rarity === 'Legendary' ? 0xffaa00 : (data.rarity === 'Zonk' ? 0xff0000 : 0x00ffcc);
     this.border.setStrokeStyle(4, warnaStroke);
 
-    // ==== 1. GAMBAR FULL CARD ====
-    // Gambar ditaruh di posisi 0,0 dan ukurannya pas 160x230 (menutupi seluruh bg)
+    // 1. Gambar Full Art
     const gambarKartu = this.scene.add.image(0, 0, data.img).setDisplaySize(160, 230);
     
-    // ==== 2. PANEL BAWAH (Biar Teks Kebaca) ====
-    // Kotak hitam transparan di bagian bawah gambar
+    // 2. Panel Bawah
     const panelBawah = this.scene.add.rectangle(0, 70, 160, 90, 0x000000, 0.85);
     
-    // ==== 3. IKON ELEMEN (Pojok Kiri Atas) ====
+    // 3. Ikon Elemen
     const elemenBg = this.scene.add.circle(-65, -95, 18, 0x000000, 0.8).setStrokeStyle(2, 0xffffff);
     const elemenText = this.scene.add.text(-65, -95, data.element, { fontSize: '18px' }).setOrigin(0.5);
 
-    // ==== 4. NAMA & STATS ====
+    // 4. Nama & Stats
     const nama = this.scene.add.text(0, 35, data.name, { ...FONT_UI, fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
     
     const statsY = 75;
     const statW = 32, gap = 5;
     const startX = -((statW * 4) + (gap * 3)) / 2 + (statW / 2);
     
+        // Ubah angkanya biar ada inisial di atasnya
     const stats = [
-      { val: data.atk, color: '#ff6666' },
-      { val: data.hp,  color: '#00ffcc' },
-      { val: data.def, color: '#3399ff' },
-      { val: data.spd, color: '#ffcc00' }
+      { val: data.atk, color: '#ff6666', label: 'ATK' },
+      { val: data.hp,  color: '#00ffcc', label: 'HP' },
+      { val: data.def, color: '#3399ff', label: 'DEF' },
+      { val: data.spd, color: '#ffcc00', label: 'SPD' }
     ];
 
-    const statTexts = stats.map((s, i) => {
+    const statTexts = [];
+    stats.forEach((s, i) => {
       const xPos = startX + i * (statW + gap);
-      return this.scene.add.text(xPos, statsY, s.val, { ...FONT_UI, fontSize: '9px', color: s.color, fontStyle: 'bold' }).setOrigin(0.5);
+      // Label kecil di atas
+      const labelText = this.scene.add.text(xPos, statsY - 8, s.label, { ...FONT_UI, fontSize: '6px', color: '#aaaaaa' }).setOrigin(0.5);
+      // Angka utama
+      const valText = this.scene.add.text(xPos, statsY + 4, s.val, { ...FONT_UI, fontSize: '9px', color: s.color, fontStyle: 'bold' }).setOrigin(0.5);
+      statTexts.push(labelText, valText);
     });
 
-    // Tambahin semua elemen ke container
     this.add([gambarKartu, panelBawah, elemenBg, elemenText, nama, ...statTexts]);
     
-    // ==== 5. TOMBOL PILIH (Fase 1v1) ====
+    // 5. Tombol PILIH (Cuma muncul di fase battle)
     if (!this.isHidden && onClick) {
-      // Tombol pilih ditaruh di paling bawah, warnanya nyatu sama tema
       this.selectBtn = this.scene.add.rectangle(0, 110, 140, 25, 0x00ffcc, 0.9).setInteractive({ useHandCursor: true });
       this.selectTxt = this.scene.add.text(0, 110, 'PILIH', { ...FONT_UI, fontSize: '10px', color: '#000000', fontStyle: 'bold' }).setOrigin(0.5);
       
@@ -127,5 +130,28 @@ export class Card extends Phaser.GameObjects.Container {
         this.scene.time.delayedCall(600, () => onClick(this.cardData));
       }
     });
+  }
+
+  // ==== FUNGSI BARU BUAT EFEK HANCUR PAS KALAH ====
+    hancurkan() {
+    // Sembunyiin kartu asli
+    this.setVisible(false);
+
+    // Bikin 4 potongan kotak yang berhamburan
+    for (let i = 0; i < 4; i++) {
+      const piece = this.scene.add.rectangle(this.x, this.y, 80, 115, 0x1a1a2e).setStrokeStyle(2, 0xff4444);
+      // Kasih efek meledak ke arah acak
+      this.scene.tweens.add({
+        targets: piece,
+        x: this.x + Phaser.Math.Between(-200, 200),
+        y: this.y + Phaser.Math.Between(-200, 200),
+        angle: Phaser.Math.Between(-180, 180),
+        alpha: 0,
+        duration: 800,
+        ease: 'Power2',
+        onComplete: () => piece.destroy()
+      });
+    }
+    this.destroy();
   }
 }

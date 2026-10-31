@@ -3,25 +3,20 @@ import { SoundManager } from '../utils/Sound.js';
 import { Card } from '../components/Card.js';
 import { Button } from '../components/Button.js';
 import { calculateBattle } from '../utils/BattleEngine.js';
+import { buatLedakan } from '../components/Particle.js';
+import { MainMenu } from '../components/MainMenu.js';
 
-// ==== DATA KARTU BARU (PANTHEON & BEAST) ====
-// Pastiin nama file 'img' sama persis dengan nama file di folder public/cards/
 const CARD_POOL = [
-  // DEWA (PANTHEON)
   { id: 'zeus',     name: 'Zeus',        img: 'zeus',     element: '⚡', atk: 45, hp: 80,  def: 10, spd: 20, rarity: 'Legendary', color: 0xffd700 },
   { id: 'poseidon', name: 'Poseidon',    img: 'poseidon', element: '🌊', atk: 35, hp: 100, def: 20, spd: 10, rarity: 'Legendary', color: 0x00bfff },
   { id: 'hades',    name: 'Hades',       img: 'hades',    element: '💀', atk: 50, hp: 70,  def: 15, spd: 15, rarity: 'Legendary', color: 0x800080 },
   { id: 'amaterasu',name: 'Amaterasu',   img: 'amaterasu',element: '🌞', atk: 40, hp: 75,  def: 15, spd: 25, rarity: 'Rare',      color: 0xff4500 },
-  
-  // BEAST (HEWAN MITOS)
   { id: 'fenrir',   name: 'Fenrir',      img: 'fenrir',   element: '❄️', atk: 40, hp: 85,  def: 10, spd: 30, rarity: 'Legendary', color: 0x87ceeb },
   { id: 'phoenix',  name: 'Phoenix',     img: 'phoenix',  element: '🔥', atk: 35, hp: 60,  def: 5,  spd: 35, rarity: 'Rare',      color: 0xff6347 },
   { id: 'leviathan',name: 'Leviathan',   img: 'leviathan',element: '🌊', atk: 30, hp: 110, def: 25, spd: 5,  rarity: 'Rare',      color: 0x4682b4 },
   { id: 'griffin',  name: 'Griffin',     img: 'griffin',  element: '🌪️', atk: 25, hp: 70,  def: 15, spd: 25, rarity: 'Rare',      color: 0xf5deb3 },
   { id: 'cerberus', name: 'Cerberus',    img: 'cerberus', element: '💀', atk: 30, hp: 80,  def: 10, spd: 20, rarity: 'Common',    color: 0x8b0000 },
   { id: 'chimera',  name: 'Chimera',     img: 'chimera',  element: '🔥', atk: 35, hp: 75,  def: 15, spd: 15, rarity: 'Common',    color: 0xdaa520 },
-  
-  // ZONK (Tetep ada buat kejutan)
   { id: 'bom',      name: 'Bom Zonk',    img: 'bom',      element: '💣', atk: 0,  hp: 1,   def: 0,  spd: 1,  rarity: 'Zonk',      color: 0xff0000 }
 ];
 
@@ -43,44 +38,49 @@ export class MainScene extends Phaser.Scene {
     this.state = {
       playerCoins: 100, computerCoins: 100, phase: 'idle', turn: null, 
       draftRound: 1, playerDeck: [], computerDeck: [], nextCardAtkModifier: 0,
-      activeSynergies: []
+      activeSynergies: [], battleRound: 1, highScore: 0
     };
     this.uiObjects = []; 
   }
 
-    // ==== PRELOAD: LOAD GAMBAR DARI FOLDER PUBLIC ====
   preload() {
-    // Load semua gambar kartu (tanpa teks loading)
     CARD_POOL.forEach(card => {
-      // Ubah jadi .jpg kalau file lo JPG, biarin .png kalau file lo PNG
       this.load.image(card.img, `/cards/${card.img}.jpg`); 
     });
+
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(4, 4, 4); 
+    g.generateTexture('flare', 8, 8);
+    g.destroy(); 
   }
 
-  create() {
+   create() {
+    console.log("Scene Create berjalan!");
     this.sound = new SoundManager();
-    this.buildUI();
+    this.state.highScore = parseInt(localStorage.getItem('monsterHighScore')) || 100;
+
+    console.log("Manggil MainMenu...");
+    this.mainMenu = new MainMenu(this, this.state.highScore, () => {
+      this.startGame();
+    }, this.sound);
+
+    console.log("MainMenu berhasil dibuat!");
+    this.uiObjects.push(this.mainMenu);
   }
 
-  buildUI() {
+  startGame() {
     const w = this.scale.width, h = this.scale.height;
-    this.add.text(w / 2, h * 0.15, 'MONSTER CARD CLASH', { ...FONT_TITLE, fontSize: '32px', color: '#f0c040' }).setOrigin(0.5);
-    this.statusText = this.add.text(w / 2, h * 0.25, 'Selamat datang, Penyihir!', { ...FONT_UI, fontSize: '14px', color: '#ffffff', align: 'center' }).setOrigin(0.5);
+    
+    this.statusText = this.add.text(w / 2, h * 0.15, 'Selamat datang, Penyihir!', { ...FONT_UI, fontSize: '14px', color: '#ffffff', align: 'center' }).setOrigin(0.5);
 
-    this.playerCoinText = this.add.text(w * 0.2, h * 0.35, 'KAMU: 100', { ...FONT_UI, fontSize: '14px', color: '#00ffcc' }).setOrigin(0.5).setVisible(false); 
-    this.compCoinText = this.add.text(w * 0.8, h * 0.35, 'MUSUH: 100', { ...FONT_UI, fontSize: '14px', color: '#ff6666' }).setOrigin(0.5).setVisible(false); 
+    this.playerCoinText = this.add.text(w * 0.2, h * 0.35, `KAMU: ${this.state.playerCoins}`, { ...FONT_UI, fontSize: '14px', color: '#00ffcc' }).setOrigin(0.5).setVisible(false); 
+    this.compCoinText = this.add.text(w * 0.8, h * 0.35, `MUSUH: ${this.state.computerCoins}`, { ...FONT_UI, fontSize: '14px', color: '#ff6666' }).setOrigin(0.5).setVisible(false); 
 
     this.deckText = this.add.text(w / 2, h - 40, '', { ...FONT_UI, fontSize: '12px', color: '#aaaaaa', align: 'center' }).setOrigin(0.5);
 
-    const startBtn = new Button(this, w / 2, h / 2, 300, 70, 0xf0c040, 'MULAI GAME', () => {
-      startBtn.destroy();
-      this.mulaiAcakan();
-    }, this.sound);
-    this.uiObjects.push(startBtn);
+    this.mulaiAcakan();
   }
-
-  // ... (Sisa kode logika di bawahnya SAMA PERSIS kayak yang terakhir, nggak ada yang berubah) ...
-  // Gw potong biar ga kepanjangan, lo tinggal copy dari sini ke bawah aja.
 
   efekLayarKedip(warna, durasi = 300) {
     const w = this.scale.width, h = this.scale.height;
@@ -88,8 +88,16 @@ export class MainScene extends Phaser.Scene {
     this.tweens.add({ targets: overlay, alpha: 0, duration: durasi, onComplete: () => overlay.destroy() });
   }
 
+  tampilkanDamage(x, y, text, warna, isBlocked = false) {
+    const dmgText = this.add.text(x, y, text, { ...FONT_TITLE, fontSize: isBlocked ? '14px' : '24px', color: warna }).setOrigin(0.5).setDepth(200);
+    this.tweens.add({
+      targets: dmgText, y: y - 80, alpha: 0, scale: 1.5, duration: 800, ease: 'Power2',
+      onComplete: () => dmgText.destroy()
+    });
+  }
+
   mulaiAcakan() {
-    this.bersihkanUI();
+    this.bersihkanUI(); 
     this.statusText.setText('Mengacak siapa yang mulai duluan...');
     this.time.delayedCall(1000, () => {
       this.state.turn = Math.random() < 0.5 ? 'player' : 'computer';
@@ -120,6 +128,7 @@ export class MainScene extends Phaser.Scene {
   cekDraftSelesai() {
     if (this.state.playerDeck.length >= DECK_SIZE && this.state.computerDeck.length >= DECK_SIZE) {
       this.state.phase = 'battle';
+      this.state.battleRound = 1;
       this.bersihkanUI();
       this.statusText.setText('DRAFT SELESAI!\nBersiap untuk 1v1...');
       this.time.delayedCall(1500, () => this.mulaiFaseBattle());
@@ -225,12 +234,14 @@ export class MainScene extends Phaser.Scene {
 
   mulaiFaseBattle() {
     this.bersihkanUI();
-    if (this.state.playerDeck.length === 0) {
+    
+    if (this.state.battleRound > 5) {
       if (this.state.playerCoins > this.state.computerCoins) this.gameOver(true, 'KOIN KAMU LEBIH BANYAK!');
       else this.gameOver(false, 'KOIN MUSUH LEBIH BANYAK!');
       return;
     }
-    this.statusText.setText('PILIH KARTU UNTUK BERTARUNG!');
+
+    this.statusText.setText(`RONDE ${this.state.battleRound} : PILIH KARTU!`);
     this.playerCoinText.setVisible(true);
     this.compCoinText.setVisible(true);
 
@@ -247,40 +258,120 @@ export class MainScene extends Phaser.Scene {
 
   pemainBattle(cardPemain, indexPemain) {
     this.bersihkanUI();
+    this.statusText.setText(`PERTARUNGAN DIMULAI!`).setY(this.scale.height * 0.1);
+
     const indexKomputer = Phaser.Math.Between(0, this.state.computerDeck.length - 1);
     const cardKomputer = this.state.computerDeck[indexKomputer];
 
     this.state.playerDeck.splice(indexPemain, 1);
     this.state.computerDeck.splice(indexKomputer, 1);
+    this.state.battleRound++;
     this.updateDeckUI();
 
-    this.statusText.setText(`ADU!\n${cardPemain.name} VS ${cardKomputer.name}`);
+    const w = this.scale.width, h = this.scale.height;
+    this.playerCoinText.setVisible(false);
+    this.compCoinText.setVisible(false);
 
-    const result = calculateBattle(cardPemain, cardKomputer);
-    console.log(result.log);
+    const targetP1X = w / 2 - 120;
+    const targetP2X = w / 2 + 120;
+    const targetY = h / 2;
 
-    this.time.delayedCall(1500, () => {
-      if (result.winner === 'p1') {
-        this.statusText.setText('KAMU MENANG!\n(+20 Koin)');
-        this.state.playerCoins += 20; this.state.computerCoins -= 20;
-        this.sound.play('win'); this.efekLayarKedip(0x00ffcc); 
-      } else if (result.winner === 'p2') {
-        this.statusText.setText('KAMU KALAH!\n(-20 Koin)');
-        this.state.playerCoins -= 20; this.state.computerCoins += 20;
-        this.sound.play('lose'); this.cameras.main.shake(300, 0.01); this.efekLayarKedip(0xff4444); 
-      } else { 
-        this.statusText.setText('SERI!'); 
-      }
+    const p1UI = new Card(this, -200, targetY, cardPemain, false, null, this.sound);
+    const p2UI = new Card(this, w + 200, targetY, cardKomputer, false, null, this.sound);
+    this.uiObjects.push(p1UI, p2UI);
+
+    const hpBarWidth = 140;
+    
+    const hpBarP1Bg = this.add.rectangle(targetP1X, targetY - 140, hpBarWidth, 10, 0x333333).setDepth(50);
+    const hpBarP1 = this.add.rectangle(targetP1X - hpBarWidth/2, targetY - 140, hpBarWidth, 10, 0x00ff00).setOrigin(0, 0.5).setDepth(51);
+    const infoP1 = this.add.text(targetP1X, targetY - 160, `DEF: ${cardPemain.def} | SPD: ${cardPemain.spd}`, { ...FONT_UI, fontSize: '8px', color: '#aaaaaa' }).setOrigin(0.5).setDepth(51);
+    
+    const hpBarP2Bg = this.add.rectangle(targetP2X, targetY - 140, hpBarWidth, 10, 0x333333).setDepth(50);
+    const hpBarP2 = this.add.rectangle(targetP2X - hpBarWidth/2, targetY - 140, hpBarWidth, 10, 0x00ff00).setOrigin(0, 0.5).setDepth(51);
+    const infoP2 = this.add.text(targetP2X, targetY - 160, `DEF: ${cardKomputer.def} | SPD: ${cardKomputer.spd}`, { ...FONT_UI, fontSize: '8px', color: '#aaaaaa' }).setOrigin(0.5).setDepth(51);
+
+    this.uiObjects.push(hpBarP1Bg, hpBarP1, infoP1, hpBarP2Bg, hpBarP2, infoP2);
+
+    this.tweens.add({ targets: p1UI, x: targetP1X, duration: 500, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: p2UI, x: targetP2X, duration: 500, ease: 'Back.easeOut' });
+
+    this.time.delayedCall(600, () => {
+      const result = calculateBattle(cardPemain, cardKomputer);
       
-      this.updateCoinUI();
-      this.time.delayedCall(2000, () => {
-        if (this.state.playerCoins <= 0) this.gameOver(false, 'KOIN HABIS!'); 
-        else if (this.state.computerCoins <= 0) this.gameOver(true, 'MUSUH BANGKRUT!'); 
-        else if (this.state.playerDeck.length === 0) {
-          if (this.state.playerCoins > this.state.computerCoins) this.gameOver(true, 'KOIN KAMU LEBIH BANYAK!');
-          else if (this.state.playerCoins < this.state.computerCoins) this.gameOver(false, 'KOIN MUSUH LEBIH BANYAK!');
-          else this.gameOver(false, 'SERI! Kamu dianggap KALAH.');
-        } else { this.mulaiFaseBattle(); }
+      let delay = 0;
+      result.log.forEach((step) => {
+        if (step.type === 'info') {
+          this.time.delayedCall(delay, () => this.statusText.setText(step.text));
+          delay += 800;
+        } else if (step.type === 'attack') {
+          this.time.delayedCall(delay, () => {
+            const attackerUI = step.attacker === 'p1' ? p1UI : p2UI;
+            const defenderUI = step.defender === 'p1' ? p1UI : p2UI;
+            
+            const originalX = step.attacker === 'p1' ? targetP1X : targetP2X;
+            const targetX = step.attacker === 'p1' ? originalX + 40 : originalX - 40;
+
+            if (step.isFirstStrike && cardPemain.spd !== cardKomputer.spd) {
+              const speedLine = this.add.line(0, 0, attackerUI.x, attackerUI.y, targetX, attackerUI.y, 0xffffff, 0.8).setDepth(40);
+              this.tweens.add({ targets: speedLine, alpha: 0, duration: 300, onComplete: () => speedLine.destroy() });
+            }
+
+            this.tweens.add({
+              targets: attackerUI, x: targetX, yoyo: true, duration: 150,
+              onYoyo: () => {
+                this.sound.play('click');
+                this.cameras.main.shake(200, 0.02); 
+                
+                const dmgX = step.defender === 'p1' ? targetP1X : targetP2X;
+                const dmgY = targetY - 50;
+                
+                if (step.isBlocked) {
+                  this.tampilkanDamage(dmgX, dmgY, `BLOCK (-${step.damage})`, '#3399ff', true);
+                  const shield = this.add.arc(dmgX, dmgY, 40, 0, 360, false, 0x3399ff, 0.3).setDepth(60);
+                  this.tweens.add({ targets: shield, scale: 1.5, alpha: 0, duration: 500, onComplete: () => shield.destroy() });
+                } else {
+                  this.tampilkanDamage(dmgX, dmgY, `-${step.damage}`, '#ff4444');
+                  buatLedakan(this, dmgX, dmgY, 0xff4444); 
+                }
+
+                if (step.defender === 'p1') {
+                  hpBarP1.width = hpBarWidth * (step.p1Hp / cardPemain.hp);
+                } else {
+                  hpBarP2.width = hpBarWidth * (step.p2Hp / cardKomputer.hp);
+                }
+              }
+            });
+          });
+          delay += 1200;
+        }
+      });
+
+      this.time.delayedCall(delay, () => {
+        if (result.winner === 'p1') {
+          p2UI.hancurkan(); 
+          this.statusText.setText('KAMU MENANG!\n(+20 Koin)');
+          this.state.playerCoins += 20; this.state.computerCoins -= 20;
+          this.sound.play('win'); this.efekLayarKedip(0x00ffcc); 
+        } else if (result.winner === 'p2') {
+          p1UI.hancurkan(); 
+          this.statusText.setText('KAMU KALAH!\n(-20 Koin)');
+          this.state.playerCoins -= 20; this.state.computerCoins += 20;
+          this.sound.play('lose'); this.efekLayarKedip(0xff4444); 
+        } else { 
+          this.statusText.setText('SERI!'); 
+          p1UI.hancurkan(); p2UI.hancurkan();
+        }
+        
+        this.playerCoinText.setVisible(true);
+        this.compCoinText.setVisible(true);
+        this.updateCoinUI();
+
+        this.time.delayedCall(2500, () => {
+          this.bersihkanUI(); 
+          if (this.state.playerCoins <= 0) this.gameOver(false, 'KOIN HABIS!'); 
+          else if (this.state.computerCoins <= 0) this.gameOver(true, 'MUSUH BANGKRUT!'); 
+          else this.mulaiFaseBattle();
+        });
       });
     });
   }
@@ -307,6 +398,11 @@ export class MainScene extends Phaser.Scene {
     this.deckText.setVisible(false); 
     this.statusText.setText('');
 
+    if (this.state.playerCoins > this.state.highScore) {
+      this.state.highScore = this.state.playerCoins;
+      localStorage.setItem('monsterHighScore', this.state.highScore);
+    }
+
     this.sound.play(isWin ? 'win' : 'lose');
     const w = this.scale.width, h = this.scale.height;
 
@@ -317,14 +413,15 @@ export class MainScene extends Phaser.Scene {
     const panel = this.add.rectangle(w / 2, h / 2, 600, 350, 0x1a1a2e, 0).setStrokeStyle(6, isWin ? 0x00ffcc : 0xff4444).setDepth(11);
     const titleText = this.add.text(w / 2, h / 2 - 70, isWin ? 'KEMENANGAN!' : 'GAME OVER', { ...FONT_TITLE, fontSize: '32px', color: warnaUtama }).setOrigin(0.5).setDepth(12).setAlpha(0);
     const reasonText = this.add.text(w / 2, h / 2 + 10, alasan, { ...FONT_UI, fontSize: '16px', color: '#eeeeee', align: 'center' }).setOrigin(0.5).setDepth(12).setAlpha(0);
-    const statsText = this.add.text(w / 2, h / 2 + 60, `KAMU: ${this.state.playerCoins}  |  MUSUH: ${this.state.computerCoins}`, { ...FONT_UI, fontSize: '14px', color: '#f0c040' }).setOrigin(0.5).setDepth(12).setAlpha(0);
+    const statsText = this.add.text(w / 2, h / 2 + 50, `KAMU: ${this.state.playerCoins}  |  MUSUH: ${this.state.computerCoins}`, { ...FONT_UI, fontSize: '14px', color: '#f0c040' }).setOrigin(0.5).setDepth(12).setAlpha(0);
+    const hsText = this.add.text(w / 2, h / 2 + 80, `REKOR: ${this.state.highScore}`, { ...FONT_UI, fontSize: '12px', color: '#00ffcc' }).setOrigin(0.5).setDepth(12).setAlpha(0);
 
-    const restartBtn = new Button(this, w / 2, h / 2 + 140, 240, 60, isWin ? 0x00ffcc : 0xff4444, 'MAIN LAGI', () => {
+    const restartBtn = new Button(this, w / 2, h / 2 + 150, 240, 60, isWin ? 0x00ffcc : 0xff4444, 'MAIN LAGI', () => {
       this.scene.restart();
     }, this.sound);
     restartBtn.setDepth(12).setAlpha(0);
 
     this.tweens.add({ targets: panel, fillAlpha: 1, duration: 500 });
-    this.tweens.add({ targets: [titleText, reasonText, statsText, restartBtn], alpha: 1, duration: 800, delay: 400 });
+    this.tweens.add({ targets: [titleText, reasonText, statsText, hsText, restartBtn], alpha: 1, duration: 800, delay: 400 });
   }
 }
