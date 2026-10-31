@@ -2,9 +2,8 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Monster Card Clash</title>
-  <!-- Font Arcade/Gaming -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -14,9 +13,10 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden; 
-      background: #0f0c29; 
-      font-family: 'Press Start 2P', cursive; /* Font Arcade */
+      overflow: hidden; /* Biar ga bisa di-scroll */
+      background: #0f0c29;
+      font-family: 'Press Start 2P', cursive;
+      touch-action: none; /* Cegah double tap zoom di HP */
     }
     #game-container {
       width: 100vw;

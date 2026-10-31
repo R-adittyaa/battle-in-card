@@ -3,13 +3,13 @@ import { MainScene } from './scenes/MainScene.js';
 
 const config = {
   type: Phaser.AUTO,
-  width: window.innerWidth,
-  height: window.innerHeight,
   parent: 'game-container',
-  backgroundColor: '#16213e',
+  backgroundColor: '#0f0c29',
   scale: {
-    mode: Phaser.Scale.RESIZE, // Ini kunci biar full screen otomatis
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    mode: Phaser.Scale.RESIZE, // Otomatis nyesuaiin layar
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: '100%',
+    height: '100%'
   },
   scene: [MainScene]
 };
