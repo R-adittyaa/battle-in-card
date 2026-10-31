@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "scripts": {
   "dev": "vite",
-  "build": "chmod +x node_modules/.bin/vite && vite build",
-  "preview": "vite preview"
-  },
+  "build": "vite build",
+  "preview": "vite preview",
+  "vercel-build": "npm ci && npm run build"
+},
   "dependencies": {
     "phaser": "^3.80.1"
   },
