@@ -2,9 +2,9 @@
   "name": "monster-in-card",
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+  "dev": "vite",
+  "build": "chmod +x node_modules/.bin/vite && vite build",
+  "preview": "vite preview"
   },
   "dependencies": {
     "phaser": "^3.80.1"
